@@ -1,23 +1,40 @@
-import { useState, useMemo } from 'react';
+import { useEffect } from 'react';
 import { connect } from 'react-redux';
+import { Switch, Route, Redirect, useRouteMatch } from 'react-router-dom';
 import PropTypes from 'prop-types';
-import Restaurant from '../restaurant';
 import Tabs from '../tabs';
+import Restaurant from '../restaurant';
+import Loader from '../loader';
+import {
+  loadRestaurants,
+  restaurantsListSelector,
+  restaurantsLoadedSelector,
+} from '../../redux/features/restaurants';
 
-const Restaurants = ({ restaurants }) => {
-  const [activeId, setActiveId] = useState(restaurants[0].id);
+const Restaurants = ({ restaurants, loaded, loadRestaurants }) => {
+  useEffect(() => {
+    loadRestaurants();
+  }, []); // eslint-disable-line
 
-  const activeRestaurant = useMemo(
-    () => restaurants.find(({ id }) => id === activeId),
-    [activeId, restaurants]
-  );
+  const match = useRouteMatch('/restaurants/:restId/:tabId');
+  const tabId = match?.params.tabId || '';
 
-  const tabs = restaurants.map(({ id, name }) => ({ id, title: name }));
+  if (!loaded) return <Loader />;
+
+  const tabs = restaurants.map(({ id, name }) => ({
+    title: name,
+    to: `/restaurants/${id}/${tabId}`,
+  }));
 
   return (
     <div>
-      <Tabs tabs={tabs} activeId={activeId} onChange={setActiveId} />
-      <Restaurant restaurant={activeRestaurant} />
+      <Tabs tabs={tabs} />
+      <Switch>
+        <Route path="/restaurants/:restId">
+          {({ match }) => <Restaurant id={match.params.restId} />}
+        </Route>
+        <Redirect to={`/restaurants/${restaurants[0].id}`} />
+      </Switch>
     </div>
   );
 };
@@ -30,6 +47,9 @@ Restaurants.propTypes = {
   ).isRequired,
 };
 
-export default connect((state) => ({
-  restaurants: state.restaurants,
-}))(Restaurants);
+const mapStateToProps = (state) => ({
+  restaurants: restaurantsListSelector(state),
+  loaded: restaurantsLoadedSelector(state),
+});
+
+export default connect(mapStateToProps, { loadRestaurants })(Restaurants);
